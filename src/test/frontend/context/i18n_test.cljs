@@ -54,7 +54,7 @@
 (deftest t-test
   (testing "t translates the current locale"
     (set-language! :en)
-    (is (= "About Logseq"
+    (is (= "About BizerOS Knowledge"
            (i18n/t :help/about)))
 
     (set-language! :es)
@@ -77,7 +77,7 @@
 (deftest tt-test
   (testing "tt returns the first translated key"
     (set-language! :en)
-    (is (= "About Logseq"
+    (is (= "About BizerOS Knowledge"
            (i18n/tt :missing/key :help/about))))
 
   (testing "tt returns nil when every key is missing"
