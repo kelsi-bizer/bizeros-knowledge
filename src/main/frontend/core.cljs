@@ -56,7 +56,7 @@
   []
   (js/console.log
    "
-    Welcome to Logseq!
+    Welcome to BizerOS Knowledge!
     If you encounter any problem, feel free to file an issue on GitHub (https://github.com/logseq/logseq)
     or join our forum (https://discuss.logseq.com).
     .____

@@ -649,7 +649,7 @@
                 [:span.pr-1
                  (if (seq current-url)
                    current-url
-                   "Logseq Sync")]
+                   "BizerOS Knowledge Sync")]
                 (ui/icon "edit")]
                :class "text-sm"
                :on-click #(state/pub-event! [:go/sync-server-settings]))))
@@ -1001,7 +1001,7 @@
            [:div {:class "w-1/2 text-lg"}
             (interpolate-rich-text-node
              (t :account/discover-sync-desc)
-             [[:strong {:class "text-white/80"} "Logseq Sync"]])]
+             [[:strong {:class "text-white/80"} "BizerOS Knowledge Sync"]])]
            [:div {:class "w-1/2 bg-gradient-to-r from-white/10 to-transparent p-3 rounded-lg flex items-center gap-2 px-5 ml-5"}
             [:div.w-3.h-3.rounded-full.bg-green-500]
             (t :account/synced-status)]]
