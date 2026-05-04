@@ -1,7 +1,6 @@
-# NOTE: please keep it in sync with .github pipelines
-# NOTE: during testing make sure to change the branch below
-# NOTE: before running the build-docker GH action edit
-#       build-docker.yml and change the release channel from :latest to :testing
+# Builds the BizerOS Knowledge web app image from this repository's source.
+# The build context is the repo root, so the rebranded sources are baked into
+# the resulting image rather than being re-cloned from upstream Logseq.
 
 # Builder image
 FROM clojure:temurin-11-tools-deps-1.11.1.1208-bullseye-slim as builder
@@ -23,8 +22,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && \
 
 WORKDIR /data
 
-# build Logseq static resources
-RUN git clone -b master https://github.com/logseq/logseq.git .
+COPY . /data
 
 RUN pnpm install --config.network-timeout=240000
 
