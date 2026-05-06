@@ -148,6 +148,8 @@ allow_strings = [
   # Brand name — displayed literally in UI, intentionally not translated.
   "Logseq",
   "Logseq Sync",
+  "BizerOS Knowledge",
+  "BizerOS Knowledge Sync",
   "GitHub",
   # Typography test string — rendered as a glyph sample, not translatable.
   "Ag",

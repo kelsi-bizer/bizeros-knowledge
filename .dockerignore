@@ -1,0 +1,15 @@
+.git
+.github
+node_modules
+**/node_modules
+static
+public
+dist
+ios
+android
+fastlane
+docs
+clj-e2e
+cli-e2e
+*.log
+.DS_Store

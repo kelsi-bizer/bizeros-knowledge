@@ -155,7 +155,7 @@
        [:span.text-sm.opacity-70
         (if-let [custom (config/get-custom-sync-server-url)]
           custom
-          "Logseq Sync")]]
+          "BizerOS Knowledge Sync")]]
 
       (when login?
         [:div.mobile-setting-item
