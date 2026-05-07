@@ -1,0 +1,118 @@
+:root {
+  color-scheme: light dark;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --bg: #ffffff;
+  --fg: #1a1a1a;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --accent: #2563eb;
+  --error: #b91c1c;
+  --success: #047857;
+  --pending: #d97706;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b0d10;
+    --fg: #e6e8eb;
+    --muted: #9aa0a6;
+    --border: #2a2f36;
+    --accent: #60a5fa;
+    --error: #fca5a5;
+    --success: #6ee7b7;
+    --pending: #fbbf24;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+
+.app-title {
+  font-weight: 600;
+}
+
+.app-path {
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.save-indicator {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.save-indicator-idle,
+.save-indicator-saved {
+  color: var(--success);
+}
+.save-indicator-pending,
+.save-indicator-saving {
+  color: var(--pending);
+}
+.save-indicator-error {
+  color: var(--error);
+  cursor: help;
+}
+
+.app-main {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+}
+
+.editor-host {
+  flex: 1;
+  height: 100%;
+  overflow: auto;
+}
+
+.editor-host .cm-editor {
+  height: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 14px;
+}
+
+.editor-host .cm-scroller {
+  padding: 1rem;
+}
+
+.app-loading,
+.app-error {
+  padding: 2rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.app-error pre {
+  background: var(--border);
+  padding: 1rem;
+  border-radius: 4px;
+  overflow: auto;
+}
