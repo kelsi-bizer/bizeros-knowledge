@@ -3,17 +3,21 @@ import { EditorState } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { markdown } from '@codemirror/lang-markdown';
+import { wikiLinkDecorationPlugin, wikiLinkClickHandler } from './WikiLinkPlugin';
 
 interface EditorProps {
   value: string;
   onChange: (next: string) => void;
+  onWikiLinkClick: (target: string) => void;
 }
 
-export function Editor({ value, onChange }: EditorProps) {
+export function Editor({ value, onChange, onWikiLinkClick }: EditorProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  const onWikiLinkClickRef = useRef(onWikiLinkClick);
+  onWikiLinkClickRef.current = onWikiLinkClick;
 
   useEffect(() => {
     if (!hostRef.current) return;
@@ -25,6 +29,8 @@ export function Editor({ value, onChange }: EditorProps) {
         keymap.of([...defaultKeymap, ...historyKeymap]),
         markdown(),
         EditorView.lineWrapping,
+        wikiLinkDecorationPlugin,
+        wikiLinkClickHandler((target) => onWikiLinkClickRef.current(target)),
         EditorView.updateListener.of((u) => {
           if (u.docChanged) onChangeRef.current(u.state.doc.toString());
         })
@@ -36,8 +42,7 @@ export function Editor({ value, onChange }: EditorProps) {
       view.destroy();
       viewRef.current = null;
     };
-    // We deliberately mount once with the initial value; external value changes
-    // are reconciled in the next effect.
+    // Mount once with the initial value; external value changes are reconciled below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
