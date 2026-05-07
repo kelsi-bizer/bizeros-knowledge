@@ -2,10 +2,13 @@
   color-scheme: light dark;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   --bg: #ffffff;
+  --bg-alt: #f6f7f9;
   --fg: #1a1a1a;
   --muted: #6b7280;
   --border: #e5e7eb;
   --accent: #2563eb;
+  --accent-bg: #dbeafe;
+  --hover: #eef0f3;
   --error: #b91c1c;
   --success: #047857;
   --pending: #d97706;
@@ -14,10 +17,13 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #0b0d10;
+    --bg-alt: #14171c;
     --fg: #e6e8eb;
     --muted: #9aa0a6;
     --border: #2a2f36;
     --accent: #60a5fa;
+    --accent-bg: #1e3a8a;
+    --hover: #1c2127;
     --error: #fca5a5;
     --success: #6ee7b7;
     --pending: #fbbf24;
@@ -53,6 +59,7 @@ body {
   padding: 0.5rem 1rem;
   border-bottom: 1px solid var(--border);
   font-size: 0.85rem;
+  flex-shrink: 0;
 }
 
 .app-title {
@@ -82,10 +89,17 @@ body {
   cursor: help;
 }
 
+.app-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
 .app-main {
   flex: 1;
   overflow: hidden;
   display: flex;
+  min-width: 0;
 }
 
 .editor-host {
@@ -105,9 +119,11 @@ body {
 }
 
 .app-loading,
+.app-empty,
 .app-error {
   padding: 2rem;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--muted);
 }
 
 .app-error pre {
@@ -115,4 +131,138 @@ body {
   padding: 1rem;
   border-radius: 4px;
   overflow: auto;
+}
+
+/* ── Sidebar ───────────────────────────────────────────────────────────── */
+
+.sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  background: var(--bg-alt);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sidebar-toolbar {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-toolbar button {
+  flex: 1;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--fg);
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 0.35rem 0.5rem;
+}
+
+.sidebar-toolbar button:hover {
+  background: var(--hover);
+}
+
+.sidebar-tree {
+  flex: 1;
+  overflow: auto;
+  padding: 0.25rem 0;
+}
+
+.sidebar-empty,
+.sidebar-error {
+  padding: 1rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.sidebar-error {
+  color: var(--error);
+}
+
+.file-tree,
+.file-tree-children {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.file-tree-row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--fg);
+  cursor: pointer;
+  font-size: 0.85rem;
+  text-align: left;
+  padding: 0.15rem 0.5rem 0.15rem 0;
+  border-radius: 0;
+}
+
+.file-tree-row:hover {
+  background: var(--hover);
+}
+
+.file-tree-current {
+  background: var(--accent-bg);
+}
+
+.file-tree-current:hover {
+  background: var(--accent-bg);
+}
+
+.file-tree-disclosure {
+  width: 1em;
+  color: var(--muted);
+  font-size: 0.75em;
+}
+
+.file-tree-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-tree-button {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  padding: 0;
+}
+
+.file-tree-actions {
+  display: none;
+  gap: 0.15rem;
+}
+
+.file-tree-row:hover .file-tree-actions {
+  display: flex;
+}
+
+.file-tree-action {
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.75rem;
+  padding: 0 0.25rem;
+}
+
+.file-tree-action:hover {
+  color: var(--fg);
+}
+
+.file-tree-dir {
+  font-weight: 500;
 }
