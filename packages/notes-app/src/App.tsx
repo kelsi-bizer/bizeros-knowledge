@@ -2,10 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Editor } from './components/Editor';
 import { Sidebar } from './components/Sidebar';
 import { Backlinks } from './components/Backlinks';
+import { MarkdownPreview } from './components/MarkdownPreview';
+import { useDialog } from './components/Dialog';
 import { useHashRoute } from './hooks/useHashRoute';
 import { useTree } from './hooks/useTree';
 import { useDebouncedEffect } from './hooks/useDebouncedEffect';
 import { useWatch, WatchEvent } from './hooks/useWatch';
+import { useTheme, Theme } from './hooks/useTheme';
 import { buildTree, todayDailyPath, todayHeading } from './utils/tree';
 import { resolveWikiTarget } from './utils/wikiLink';
 import {
@@ -22,17 +25,31 @@ const SAVE_DEBOUNCE_MS = 500;
 const TREE_RELOAD_DEBOUNCE_MS = 250;
 const BACKLINK_REFRESH_DEBOUNCE_MS = 1000;
 const DEFAULT_NEW_NOTE_PATH = 'pages/untitled.md';
+const VIEW_MODE_STORAGE_KEY = 'bizeros-view-mode';
 
 type SaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error';
+type ViewMode = 'edit' | 'split' | 'preview';
 
 interface ConflictState {
   newContent: string;
   newMtime: number;
 }
 
+function readViewMode(): ViewMode {
+  try {
+    const v = localStorage.getItem(VIEW_MODE_STORAGE_KEY);
+    if (v === 'edit' || v === 'split' || v === 'preview') return v;
+  } catch {
+    // Ignore.
+  }
+  return 'edit';
+}
+
 export function App() {
+  const dialog = useDialog();
   const [path, navigate] = useHashRoute();
   const { entries, error: treeError, reload: reloadTree } = useTree();
+  const { theme, cycleTheme } = useTheme();
 
   const [content, setContent] = useState<string>('');
   const [loaded, setLoaded] = useState(false);
@@ -43,15 +60,19 @@ export function App() {
   const [backlinkRefreshKey, setBacklinkRefreshKey] = useState(0);
   const [pendingTreeReload, setPendingTreeReload] = useState(0);
   const [pendingBacklinkBump, setPendingBacklinkBump] = useState(0);
+  const [viewMode, setViewModeState] = useState<ViewMode>(readViewMode);
 
-  // Track which path the in-memory `content` belongs to. Without this,
-  // a hash change can fire a stale debounced save against the new path.
+  const setViewMode = useCallback((next: ViewMode) => {
+    setViewModeState(next);
+    try {
+      localStorage.setItem(VIEW_MODE_STORAGE_KEY, next);
+    } catch {
+      // Ignore.
+    }
+  }, []);
+
   const loadedPathRef = useRef<string | null>(null);
-  // Last known mtime per path. Used to distinguish our own writes from
-  // external edits when a 'modified' watch event arrives.
   const lastMtimeRef = useRef<Map<string, number>>(new Map());
-
-  // Refs that the SSE handler reads at event time to avoid stale closures.
   const pathRef = useRef(path);
   pathRef.current = path;
   const saveStatusRef = useRef(saveStatus);
@@ -60,11 +81,9 @@ export function App() {
   // First-load default: navigate to today's daily note.
   useEffect(() => {
     if (path === '') navigate(todayDailyPath());
-    // Only on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Load the file whenever the path changes.
   useEffect(() => {
     if (!path) return;
     let cancelled = false;
@@ -139,7 +158,6 @@ export function App() {
     if (event.type === 'created' || event.type === 'deleted') {
       setPendingTreeReload((n) => n + 1);
     }
-    // Any .md change might affect backlinks for the current page.
     if (/\.md$/i.test(event.path)) {
       setPendingBacklinkBump((n) => n + 1);
     }
@@ -147,7 +165,6 @@ export function App() {
       void handleExternalModified(event.path);
     }
     if (event.type === 'deleted' && event.path === pathRef.current) {
-      // The current file was deleted under us. Clear and surface an error.
       setLoaded(false);
       setLoadError('This note was deleted externally.');
     }
@@ -155,7 +172,6 @@ export function App() {
 
   useWatch({ onEvent: handleWatchEvent });
 
-  // Debounced effects for batched events ──────────────────────────────────
   useDebouncedEffect(
     () => {
       if (pendingTreeReload === 0) return;
@@ -178,10 +194,9 @@ export function App() {
     try {
       const { content: newContent, mtime: newMtime } = await getFile(changedPath);
       const known = lastMtimeRef.current.get(changedPath);
-      if (known !== undefined && newMtime === known) return; // Our own save echo.
+      if (known !== undefined && newMtime === known) return;
       const status = saveStatusRef.current;
       if (status === 'saving' || status === 'pending') {
-        // User is mid-edit. Surface a banner; don't clobber.
         setConflict({ newContent, newMtime });
       } else {
         loadedPathRef.current = changedPath;
@@ -211,8 +226,11 @@ export function App() {
   // ── Sidebar / file ops ────────────────────────────────────────────────────
 
   const handleNewNote = useCallback(async () => {
-    const input = window.prompt('New note path (relative to /brain):', DEFAULT_NEW_NOTE_PATH);
-    if (!input) return;
+    const input = await dialog.prompt('New note', {
+      defaultValue: DEFAULT_NEW_NOTE_PATH,
+      message: 'Path is relative to /brain. ".md" is appended if you omit it.'
+    });
+    if (input === null) return;
     const target = input.trim().replace(/^\/+/, '');
     if (!target) return;
     const finalPath = target.endsWith('.md') ? target : `${target}.md`;
@@ -222,9 +240,9 @@ export function App() {
       await reloadTree();
       navigate(finalPath);
     } catch (err) {
-      window.alert(`Failed to create: ${err instanceof Error ? err.message : String(err)}`);
+      await dialog.alert(`Failed to create: ${err instanceof Error ? err.message : String(err)}`);
     }
-  }, [navigate, reloadTree]);
+  }, [dialog, navigate, reloadTree]);
 
   const handleTodayNote = useCallback(async () => {
     const target = todayDailyPath();
@@ -236,14 +254,19 @@ export function App() {
       }
       navigate(target);
     } catch (err) {
-      window.alert(`Failed to open today's note: ${err instanceof Error ? err.message : String(err)}`);
+      await dialog.alert(
+        `Failed to open today's note: ${err instanceof Error ? err.message : String(err)}`
+      );
     }
-  }, [navigate, reloadTree]);
+  }, [dialog, navigate, reloadTree]);
 
   const handleRename = useCallback(
     async (oldPath: string) => {
-      const input = window.prompt(`Rename "${oldPath}" to:`, oldPath);
-      if (!input) return;
+      const input = await dialog.prompt('Rename note', {
+        defaultValue: oldPath,
+        message: `Renaming "${oldPath}".`
+      });
+      if (input === null) return;
       const target = input.trim().replace(/^\/+/, '');
       if (!target || target === oldPath) return;
       try {
@@ -251,27 +274,28 @@ export function App() {
         await reloadTree();
         if (path === oldPath) navigate(target);
       } catch (err) {
-        window.alert(`Rename failed: ${err instanceof Error ? err.message : String(err)}`);
+        await dialog.alert(`Rename failed: ${err instanceof Error ? err.message : String(err)}`);
       }
     },
-    [navigate, path, reloadTree]
+    [dialog, navigate, path, reloadTree]
   );
 
   const handleDelete = useCallback(
     async (target: string) => {
-      if (!window.confirm(`Delete "${target}"? This cannot be undone.`)) return;
+      const ok = await dialog.confirm(`Delete "${target}"? This cannot be undone.`, {
+        title: 'Delete note'
+      });
+      if (!ok) return;
       try {
         await deleteFile(target);
         await reloadTree();
         if (path === target) navigate('');
       } catch (err) {
-        window.alert(`Delete failed: ${err instanceof Error ? err.message : String(err)}`);
+        await dialog.alert(`Delete failed: ${err instanceof Error ? err.message : String(err)}`);
       }
     },
-    [navigate, path, reloadTree]
+    [dialog, navigate, path, reloadTree]
   );
-
-  // ── Wiki links ────────────────────────────────────────────────────────────
 
   const handleWikiLinkClick = useCallback(
     async (target: string) => {
@@ -286,12 +310,12 @@ export function App() {
         }
         navigate(resolved);
       } catch (err) {
-        window.alert(
+        await dialog.alert(
           `Failed to open [[${target}]]: ${err instanceof Error ? err.message : String(err)}`
         );
       }
     },
-    [entries, navigate, reloadTree]
+    [dialog, entries, navigate, reloadTree]
   );
 
   const tree = entries === null ? null : buildTree(entries);
@@ -301,6 +325,8 @@ export function App() {
       <header className="app-header">
         <span className="app-title">BizerOS Knowledge</span>
         <span className="app-path">/brain/{path || '(no file selected)'}</span>
+        <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
+        <ThemeToggle theme={theme} onCycle={cycleTheme} />
         <SaveIndicator status={saveStatus} error={saveError} />
       </header>
       {conflict && (
@@ -337,7 +363,22 @@ export function App() {
             <div className="app-loading">Loading…</div>
           ) : (
             <div className="app-editor-stack">
-              <Editor value={content} onChange={handleChange} onWikiLinkClick={handleWikiLinkClick} />
+              <div className={`workspace workspace-${viewMode}`}>
+                {viewMode !== 'preview' && (
+                  <div className="workspace-pane workspace-edit">
+                    <Editor
+                      value={content}
+                      onChange={handleChange}
+                      onWikiLinkClick={handleWikiLinkClick}
+                    />
+                  </div>
+                )}
+                {viewMode !== 'edit' && (
+                  <div className="workspace-pane workspace-preview">
+                    <MarkdownPreview content={content} onWikiLinkClick={handleWikiLinkClick} />
+                  </div>
+                )}
+              </div>
               <Backlinks
                 currentPath={path}
                 entries={entries}
@@ -349,6 +390,45 @@ export function App() {
         </main>
       </div>
     </div>
+  );
+}
+
+function ViewModeToggle({
+  viewMode,
+  onChange
+}: {
+  viewMode: ViewMode;
+  onChange: (next: ViewMode) => void;
+}) {
+  return (
+    <div className="view-mode-toggle" role="group" aria-label="View mode">
+      {(['edit', 'split', 'preview'] as ViewMode[]).map((mode) => (
+        <button
+          key={mode}
+          type="button"
+          className={'view-mode-button' + (viewMode === mode ? ' view-mode-active' : '')}
+          onClick={() => onChange(mode)}
+        >
+          {mode}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ThemeToggle({ theme, onCycle }: { theme: Theme; onCycle: () => void }) {
+  const label = theme === 'system' ? 'system' : theme === 'light' ? 'light' : 'dark';
+  const glyph = theme === 'system' ? '◐' : theme === 'light' ? '☀' : '☾';
+  return (
+    <button
+      type="button"
+      className="theme-toggle"
+      onClick={onCycle}
+      title={`Theme: ${label}. Click to cycle.`}
+    >
+      <span aria-hidden="true">{glyph}</span>
+      <span className="theme-toggle-label">{label}</span>
+    </button>
   );
 }
 
