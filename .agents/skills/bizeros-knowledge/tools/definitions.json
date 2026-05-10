@@ -1,0 +1,67 @@
+[
+  {
+    "name": "list_notes",
+    "description": "List every markdown note path in the user's brain folder, sorted alphabetically. Use to discover what exists before writing, to avoid creating duplicates, and to scope a recall request.",
+    "parameters": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "search_notes",
+    "description": "Find notes whose path or contents contain the query (case-insensitive substring match). Returns up to 50 hits with a one-line snippet from each. Use to recall prior context before answering, and to find existing topical pages before creating new ones.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "Substring to search for. Try the user's exact words first, then variants if the first attempt returns nothing useful."
+        },
+        "limit": {
+          "type": "integer",
+          "description": "Maximum number of hits to return. Defaults to 50.",
+          "default": 50,
+          "minimum": 1,
+          "maximum": 200
+        }
+      },
+      "required": ["query"],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "read_note",
+    "description": "Read the full markdown content of one note. Returns ok=false with error='not_found' if the file does not exist. ALWAYS call this before write_note when updating an existing note, otherwise write_note will overwrite history.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Relative path under the brain folder, e.g. 'daily/2026-05-09.md' or 'pages/Project Aurora.md'."
+        }
+      },
+      "required": ["path"],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "write_note",
+    "description": "Write or overwrite a markdown note at the given path. REPLACES the entire file. Creates parent directories as needed. Use [[Page Name]] syntax to cross-link related notes.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Relative path under the brain folder. Must end in .md (will be appended if missing). Examples: 'daily/2026-05-09.md', 'pages/Sarah Johnson.md'."
+        },
+        "content": {
+          "type": "string",
+          "description": "Full markdown content of the note. This REPLACES any existing content. When updating, read_note first and pass the merged result here."
+        }
+      },
+      "required": ["path", "content"],
+      "additionalProperties": false
+    }
+  }
+]
