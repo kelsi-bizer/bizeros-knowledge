@@ -1,15 +1,35 @@
+# Keep the docker build context lean. Only packages/notes-app, packages/file-api,
+# and docker/ are needed to build the BizerOS Knowledge image.
+
 .git
 .github
-node_modules
-**/node_modules
-static
-public
-dist
-ios
-android
-fastlane
-docs
-clj-e2e
-cli-e2e
 *.log
 .DS_Store
+
+# Build outputs and dependency dirs that should never be sent.
+**/node_modules
+**/dist
+**/.parcel-cache
+**/.vite
+**/*.tsbuildinfo
+
+# Upstream-Logseq directories the new image does not consume.
+android
+ios
+fastlane
+docs
+src
+deps
+scripts
+icons
+resources
+public
+static
+prompts
+clj-e2e
+cli-e2e
+externs
+externs.js
+ssl
+libs
+bin

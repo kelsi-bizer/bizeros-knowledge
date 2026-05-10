@@ -1,34 +1,51 @@
-# Builds the BizerOS Knowledge web app image from this repository's source.
-# The build context is the repo root, so the rebranded sources are baked into
-# the resulting image rather than being re-cloned from upstream Logseq.
+# BizerOS Knowledge — multi-stage build.
+# Final image runs nginx (serving the notes-app SPA) and a file-api sidecar
+# (persisting markdown to $BRAIN_DIR, default /brain).
 
-# Builder image
-FROM clojure:temurin-11-tools-deps-1.11.1.1208-bullseye-slim as builder
+# ── Stage 1: build the notes-app SPA ─────────────────────────────────────────
+FROM node:22-alpine AS notes-app-builder
+WORKDIR /build
+RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
 
-ARG DEBIAN_FRONTEND=noninteractive
+COPY packages/notes-app/package.json packages/notes-app/pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 
-# Install reqs
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    ca-certificates \
-    apt-transport-https \
-    gpg \
-    build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev
+COPY packages/notes-app/ ./
+RUN pnpm build
 
-# install NodeJS & pnpm
-RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && \
-    apt-get update && apt-get install -y nodejs && \
-    corepack enable && corepack prepare pnpm@10.33.0 --activate
+# ── Stage 2: install the file-api runtime ────────────────────────────────────
+FROM node:22-alpine AS file-api-builder
+WORKDIR /build
+RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
 
-WORKDIR /data
+COPY packages/file-api/package.json packages/file-api/pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile --prod
+COPY packages/file-api/src ./src
 
-COPY . /data
+# ── Stage 3: runtime ─────────────────────────────────────────────────────────
+FROM node:22-alpine
 
-RUN pnpm install --config.network-timeout=240000
+# nginx is the front door; tini reaps zombies and forwards signals.
+RUN apk add --no-cache nginx tini
 
-RUN pnpm release
+# SPA bundle.
+COPY --from=notes-app-builder /build/dist /usr/share/nginx/html
 
-# Web App Runner image
-FROM nginx:1.24.0-alpine3.17
+# File-api source + node_modules.
+COPY --from=file-api-builder /build /opt/file-api
 
-COPY --from=builder /data/static /usr/share/nginx/html
+# nginx + entrypoint configuration.
+COPY docker/nginx.conf /etc/nginx/http.d/default.conf
+COPY docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# /brain is the markdown persistence root. Mount a host volume here.
+ENV BRAIN_DIR=/brain
+VOLUME ["/brain"]
+
+EXPOSE 80
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD wget --quiet --tries=1 --spider http://127.0.0.1/api/health || exit 1
+
+ENTRYPOINT ["/sbin/tini", "--", "/entrypoint.sh"]

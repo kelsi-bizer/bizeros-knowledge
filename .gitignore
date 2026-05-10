@@ -47,7 +47,6 @@ charlie/
 .vscode
 /.claude
 /.preprocessor-cljs
-docker
 android/app/src/main/assets/capacitor.plugin.json
 ios/App/App/capacitor.config.json
 ios/App/App/public
