@@ -13,7 +13,7 @@ on:
 
 env:
   CLOJURE_VERSION: '1.12.4.1618'
-  IMAGE_NAME: bizeros-knowledge
+  IMAGE_NAME: bizerbrain
 
 jobs:
 

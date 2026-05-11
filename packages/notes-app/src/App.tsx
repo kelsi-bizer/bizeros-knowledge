@@ -25,7 +25,7 @@ const SAVE_DEBOUNCE_MS = 500;
 const TREE_RELOAD_DEBOUNCE_MS = 250;
 const BACKLINK_REFRESH_DEBOUNCE_MS = 1000;
 const DEFAULT_NEW_NOTE_PATH = 'pages/untitled.md';
-const VIEW_MODE_STORAGE_KEY = 'bizeros-view-mode';
+const VIEW_MODE_STORAGE_KEY = 'bizerbrain-view-mode';
 
 type SaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error';
 type ViewMode = 'edit' | 'split' | 'preview';
@@ -323,7 +323,7 @@ export function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <span className="app-title">BizerOS Knowledge</span>
+        <span className="app-title">BizerBrain</span>
         <span className="app-path">/brain/{path || '(no file selected)'}</span>
         <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
         <ThemeToggle theme={theme} onCycle={cycleTheme} />
