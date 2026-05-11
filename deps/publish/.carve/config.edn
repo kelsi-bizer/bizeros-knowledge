@@ -1,3 +1,0 @@
-{:paths ["src"]
- :api-namespaces [logseq.publish.worker]
- :report {:format :ignore}}

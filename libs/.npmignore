@@ -1,5 +1,0 @@
-src/
-webpack.*
-.DS_Store
-docs/
-cljs-sdk/

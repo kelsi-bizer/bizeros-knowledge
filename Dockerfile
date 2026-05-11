@@ -1,4 +1,4 @@
-# BizerOS Knowledge — multi-stage build.
+# BizerBrain — multi-stage build.
 # Final image runs nginx (serving the notes-app SPA) and a file-api sidecar
 # (persisting markdown to $BRAIN_DIR, default /brain).
 
