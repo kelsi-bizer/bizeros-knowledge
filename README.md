@@ -1,4 +1,7 @@
-# BizerBrain
+# BizerBrain ![status](https://img.shields.io/badge/status-alpha-orange)
+
+> [!WARNING]
+> **BizerBrain is in alpha.** Brain-folder conventions, agent tool surfaces, and the Docker image layout may change between releases. Back up `/srv/bizerbrain/brain` before upgrading. Issues and feedback welcome.
 
 A markdown knowledge base for AI agents and humans, built around plain files on disk. Notes live as `.md` files in a folder; an AI agent and a web UI both read and write the same files, with live updates between them.
 
