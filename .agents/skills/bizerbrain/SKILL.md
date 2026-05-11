@@ -1,11 +1,11 @@
 ---
-name: bizeros-knowledge
+name: bizerbrain
 description: Capture, organize, and recall the user's personal knowledge as plain markdown files in a shared brain folder. Use when the user mentions their notes, knowledge base, daily journal, or asks you to remember, summarize, or look up something they've previously captured. Cross-link related notes with `[[Page Name]]` so the knowledge base becomes a navigable graph.
 tags:
   - knowledge-management
   - notes
   - markdown
-  - bizeros
+  - bizerbrain
 metadata:
   openclaw:
     requires:
@@ -15,7 +15,7 @@ metadata:
     primaryEnv: BRAIN_DIR
 ---
 
-# BizerOS Knowledge
+# BizerBrain
 
 ## When to Use
 
@@ -31,7 +31,7 @@ Skip this skill when the user is asking a one-off question that has nothing to d
 
 ## Quick Reference
 
-The brain lives at `$BRAIN_DIR` (default `/srv/bizeros/brain`). Four tools operate on it:
+The brain lives at `$BRAIN_DIR` (default `/srv/bizerbrain/brain`). Four tools operate on it:
 
 | Tool | Purpose |
 |---|---|

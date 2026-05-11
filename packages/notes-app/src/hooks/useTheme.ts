@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 export type Theme = 'light' | 'dark' | 'system';
 
-const STORAGE_KEY = 'bizeros-theme';
+const STORAGE_KEY = 'bizerbrain-theme';
 
 function readTheme(): Theme {
   try {

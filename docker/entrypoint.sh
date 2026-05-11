@@ -1,5 +1,5 @@
 #!/bin/sh
-# BizerOS Knowledge container entrypoint.
+# BizerBrain container entrypoint.
 # Runs the file-api sidecar in the background and nginx in the foreground.
 
 set -eu

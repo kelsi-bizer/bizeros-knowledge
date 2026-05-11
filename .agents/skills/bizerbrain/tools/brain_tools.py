@@ -1,9 +1,9 @@
-"""Reference implementation of the four BizerOS Knowledge skill tools.
+"""Reference implementation of the four BizerBrain skill tools.
 
 Drop into any Python-based agent harness (Hermes, OpenClaw, custom).
 Register the four functions against the JSON Schema definitions in
 tools/definitions.json. Reads BRAIN_DIR from the environment; defaults
-to /srv/bizeros/brain.
+to /srv/bizerbrain/brain.
 
 These tools talk to the filesystem directly. They do NOT go through the
 notes-app's HTTP file-api. That makes them simpler and lower-latency
@@ -17,7 +17,7 @@ import os
 import re
 from pathlib import Path
 
-BRAIN_DIR = Path(os.environ.get("BRAIN_DIR", "/srv/bizeros/brain")).resolve()
+BRAIN_DIR = Path(os.environ.get("BRAIN_DIR", "/srv/bizerbrain/brain")).resolve()
 
 ALLOWED_EXTENSIONS = {".md"}
 
