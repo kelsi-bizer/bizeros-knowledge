@@ -48,12 +48,35 @@ Then open `http://localhost:8080`.
 
 - **`packages/notes-app`** — Vite + React markdown editor (the web UI)
 - **`packages/file-api`** — Fastify HTTP service that exposes the brain folder as a tiny REST API used by the SPA
-- **`docker/`** — nginx config and entrypoint that runs both inside one container
+- **`packages/mcp-server`** — Model Context Protocol server that exposes the brain to any MCP-capable agent over stdio
+- **`docker/`** — nginx config and entrypoint that runs the web UI + file-api inside one container
 - **`.agents/skills/bizerbrain`** — agent skill (agentskills.io format) compatible with Hermes Agent, OpenClaw, and Claude Code; ClawHub-publishable
 
 ## Agent integration
 
-Drop the skill into the agent's skill directory:
+Two equally-valid ways to connect an agent. Pick the one your agent supports — both target the same brain folder and expose the same four tools (`list_notes`, `search_notes`, `read_note`, `write_note`).
+
+### Option A — MCP server (any MCP-capable agent)
+
+For agents that speak the Model Context Protocol — Claude Code, Cursor, MCP-Inspector, custom clients — add one entry to the agent's MCP config:
+
+```json
+{
+  "mcpServers": {
+    "bizerbrain": {
+      "command": "node",
+      "args": ["/opt/bizerbrain/packages/mcp-server/src/server.js"],
+      "env": { "BRAIN_DIR": "/srv/bizerbrain/brain" }
+    }
+  }
+}
+```
+
+That's the entire integration. The agent reads and writes markdown directly under `/srv/bizerbrain/brain/`.
+
+### Option B — agentskills.io skill (Hermes, OpenClaw, Claude Code)
+
+For agents that load skills from a skills directory, symlink the skill in:
 
 ```bash
 # Hermes
@@ -66,7 +89,7 @@ ln -s /opt/bizerbrain/.agents/skills/bizerbrain ~/.openclaw/skills/bizerbrain
 export BRAIN_DIR=/srv/bizerbrain/brain
 ```
 
-The skill exposes four tools to the agent: `list_notes`, `search_notes`, `read_note`, `write_note`. See `.agents/skills/bizerbrain/SKILL.md` for the conventions and tool reference the agent follows.
+The skill teaches the agent the brain conventions (folder layout, wiki-links, the compiled-truth + timeline page structure). See `.agents/skills/bizerbrain/SKILL.md` for the full instructions the agent follows.
 
 ## License
 
