@@ -3,6 +3,7 @@ import { config } from './config.js';
 import treeRoutes from './routes/tree.js';
 import fileRoutes from './routes/file.js';
 import moveRoutes from './routes/move.js';
+import searchRoutes from './routes/search.js';
 import watchRoutes, { closeWatcher } from './routes/watch.js';
 
 export async function buildServer() {
@@ -27,6 +28,7 @@ export async function buildServer() {
   await fastify.register(treeRoutes);
   await fastify.register(fileRoutes);
   await fastify.register(moveRoutes);
+  await fastify.register(searchRoutes);
   await fastify.register(watchRoutes);
 
   fastify.addHook('onClose', async () => {

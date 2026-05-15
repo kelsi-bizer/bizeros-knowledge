@@ -57,7 +57,17 @@ Then open `http://localhost:8080`.
 
 ## Agent integration
 
-Two equally-valid ways to connect an agent. Pick the one your agent supports — both target the same brain folder and expose the same four tools (`list_notes`, `search_notes`, `read_note`, `write_note`).
+The agent connects to BizerBrain over **HTTP**, not the filesystem. The agent can live in its own container, on its own VM, or anywhere it can reach the BizerBrain instance — no shared volume mount required.
+
+Set one env var on the agent process:
+
+```
+BIZERBRAIN_API_URL=http://<bizerbrain-host>:8080
+```
+
+For agents running in another container on the same Docker host, put both containers on the same Docker network and use the BizerBrain service name (`http://bizerbrain:8080`). For agents on the same host outside containers, use `http://localhost:8080`. For agents on a different machine, use the BizerBrain VM's IP or hostname.
+
+Two equally-valid ways to install the tools. Pick the one your agent supports — both call the same HTTP API and expose the same four tools (`list_notes`, `search_notes`, `read_note`, `write_note`).
 
 ### Option A — MCP server (any MCP-capable agent)
 
@@ -69,13 +79,13 @@ For agents that speak the Model Context Protocol — Claude Code, Cursor, MCP-In
     "bizerbrain": {
       "command": "node",
       "args": ["/opt/bizerbrain/packages/mcp-server/src/server.js"],
-      "env": { "BRAIN_DIR": "/srv/bizerbrain/brain" }
+      "env": { "BIZERBRAIN_API_URL": "http://bizerbrain:8080" }
     }
   }
 }
 ```
 
-That's the entire integration. The agent reads and writes markdown directly under `/srv/bizerbrain/brain/`.
+That's the entire integration. The agent's tool calls turn into HTTP requests to the BizerBrain file-api.
 
 ### Option B — agentskills.io skill (Hermes, OpenClaw, Claude Code)
 
@@ -88,11 +98,20 @@ ln -s /opt/bizerbrain/.agents/skills/bizerbrain ~/.hermes/skills/bizerbrain
 # OpenClaw
 ln -s /opt/bizerbrain/.agents/skills/bizerbrain ~/.openclaw/skills/bizerbrain
 
-# Set the brain dir for the agent process
-export BRAIN_DIR=/srv/bizerbrain/brain
+# Point the agent process at the BizerBrain HTTP API
+export BIZERBRAIN_API_URL=http://bizerbrain:8080
 ```
 
 The skill teaches the agent the brain conventions (folder layout, wiki-links, the compiled-truth + timeline page structure). See `.agents/skills/bizerbrain/SKILL.md` for the full instructions the agent follows.
+
+### Note on networking
+
+The BizerBrain quickstart binds the container to `127.0.0.1:8080` on the host — only reachable from the host itself. If your agent is in another container, either:
+
+- **Put both containers on the same Docker network** (recommended). Then use `http://bizerbrain:8080` from the agent.
+- **Bind BizerBrain to `0.0.0.0:8080`** (in the `docker run` command, use `-p 8080:80` instead of `-p 127.0.0.1:8080:80`). Then the agent can reach it via the Docker bridge IP (typically `http://172.17.0.1:8080`).
+
+For a single-VM setup with both containers on the same host, the first option is cleaner and keeps the brain off the public network.
 
 ## License
 

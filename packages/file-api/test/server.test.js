@@ -128,3 +128,32 @@ test('delete missing returns 404', async () => {
   const res = await server.inject({ method: 'DELETE', url: '/api/file?path=pages/nope.md' });
   assert.equal(res.statusCode, 404);
 });
+
+test('search finds path and content matches', async () => {
+  await server.inject({
+    method: 'PUT',
+    url: '/api/file?path=pages/Search%20Target.md',
+    payload: 'A line about widgets.\nAnother line.\n',
+    headers: { 'content-type': 'text/markdown' }
+  });
+
+  const res = await server.inject({ method: 'GET', url: '/api/search?query=widgets' });
+  assert.equal(res.statusCode, 200);
+  const body = JSON.parse(res.body);
+  assert.ok(Array.isArray(body.hits));
+  const hit = body.hits.find((h) => h.path === 'pages/Search Target.md');
+  assert.ok(hit, 'expected pages/Search Target.md in hits');
+  assert.match(hit.snippet, /widgets/i);
+});
+
+test('search rejects missing query', async () => {
+  const res = await server.inject({ method: 'GET', url: '/api/search' });
+  assert.equal(res.statusCode, 400);
+});
+
+test('search respects limit', async () => {
+  const res = await server.inject({ method: 'GET', url: '/api/search?query=.&limit=1' });
+  assert.equal(res.statusCode, 200);
+  const body = JSON.parse(res.body);
+  assert.ok(body.hits.length <= 1);
+});
