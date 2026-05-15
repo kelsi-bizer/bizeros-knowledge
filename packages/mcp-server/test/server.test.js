@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import os from 'node:os';
@@ -6,14 +6,31 @@ import { promises as fs } from 'node:fs';
 
 const tmpBrain = await fs.mkdtemp(path.join(os.tmpdir(), 'brain-mcp-srv-'));
 process.env.BRAIN_DIR = tmpBrain;
+process.env.LOG_LEVEL = 'silent';
+
+const fileApiModulePath = path.resolve(
+  path.dirname(new URL(import.meta.url).pathname),
+  '../../file-api/src/server.js'
+);
+const { buildServer: buildFileApi } = await import(fileApiModulePath);
+
+// Bring up the file-api FIRST so the MCP server's brain.js captures the
+// right BIZERBRAIN_API_URL at module-load time.
+const fileApi = await buildFileApi();
+await fileApi.listen({ host: '127.0.0.1', port: 0 });
+const address = fileApi.server.address();
+process.env.BIZERBRAIN_API_URL = `http://127.0.0.1:${address.port}`;
 
 const {
   ListToolsRequestSchema,
   CallToolRequestSchema
 } = await import('@modelcontextprotocol/sdk/types.js');
 const { buildServer } = await import('../src/server.js');
-
 const server = buildServer();
+
+after(async () => {
+  if (fileApi) await fileApi.close();
+});
 
 async function call(schema, params) {
   const method = schema.shape.method.value;
@@ -85,12 +102,12 @@ test('call_tool unknown tool name returns ok=false', async () => {
   assert.match(body.error, /unknown tool/);
 });
 
-test('call_tool write_note path traversal rejected', async () => {
+test('call_tool write_note path traversal rejected at server', async () => {
   const result = await call(CallToolRequestSchema, {
     name: 'write_note',
     arguments: { path: '../etc/passwd.md', content: 'x' }
   });
   const body = parseResult(result);
   assert.equal(body.ok, false);
-  assert.match(body.error, /escapes brain root/);
+  assert.match(body.error, /http 400/);
 });

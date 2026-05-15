@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // MCP server that exposes the BizerBrain knowledge folder as four tools.
-// Talks to $BRAIN_DIR directly via the filesystem (see src/brain.js).
-// Communicates over stdio — agent harnesses launch this as a subprocess and
-// pipe messages through stdin/stdout.
+// Talks to the BizerBrain file-api over HTTP (see src/brain.js); configure
+// with $BIZERBRAIN_API_URL. Communicates with MCP clients over stdio —
+// agent harnesses launch this as a subprocess and pipe messages through
+// stdin/stdout.
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
@@ -11,7 +12,7 @@ import {
   ListToolsRequestSchema
 } from '@modelcontextprotocol/sdk/types.js';
 
-import { listNotes, searchNotes, readNote, writeNote, getBrainDir } from './brain.js';
+import { listNotes, searchNotes, readNote, writeNote, getApiUrl } from './brain.js';
 
 const TOOLS = [
   {
@@ -136,5 +137,5 @@ if (isDirectRun) {
   const server = buildServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  process.stderr.write(`[bizerbrain-mcp] connected, BRAIN_DIR=${getBrainDir()}\n`);
+  process.stderr.write(`[bizerbrain-mcp] connected, BIZERBRAIN_API_URL=${getApiUrl()}\n`);
 }

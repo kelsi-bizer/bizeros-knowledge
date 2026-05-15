@@ -1,144 +1,112 @@
 """Reference implementation of the four BizerBrain skill tools.
 
+Calls the BizerBrain file-api over HTTP. Configure with the
+`BIZERBRAIN_API_URL` env var (default `http://bizerbrain:8080`).
+
 Drop into any Python-based agent harness (Hermes, OpenClaw, custom).
 Register the four functions against the JSON Schema definitions in
-tools/definitions.json. Reads BRAIN_DIR from the environment; defaults
-to /srv/bizerbrain/brain.
-
-These tools talk to the filesystem directly. They do NOT go through the
-notes-app's HTTP file-api. That makes them simpler and lower-latency
-when the agent runs on the same VM as the brain folder, and it removes
-any need for auth or network setup.
+tools/definitions.json. The agent can run in its own container, on
+its own VM, or anywhere with HTTP reach to the BizerBrain instance
+— no filesystem mount required.
 """
 
 from __future__ import annotations
 
+import json
 import os
-import re
-from pathlib import Path
+from urllib import error, parse, request
 
-BRAIN_DIR = Path(os.environ.get("BRAIN_DIR", "/srv/bizerbrain/brain")).resolve()
-
-ALLOWED_EXTENSIONS = {".md"}
+API_URL = os.environ.get("BIZERBRAIN_API_URL", "http://bizerbrain:8080").rstrip("/")
+HTTP_TIMEOUT = float(os.environ.get("BIZERBRAIN_HTTP_TIMEOUT", "10"))
 
 
-class BrainPathError(ValueError):
-    """Raised when a path is outside the brain folder or otherwise invalid."""
+def get_api_url() -> str:
+    return API_URL
 
 
-def _safe_path(rel: str) -> Path:
-    """Resolve `rel` against BRAIN_DIR, rejecting traversal and null bytes."""
-    if not isinstance(rel, str) or not rel:
-        raise BrainPathError("path is required")
-    if "\0" in rel:
-        raise BrainPathError("path contains null byte")
-    candidate = (BRAIN_DIR / rel.lstrip("/")).resolve()
+def _http(method: str, path_and_query: str,
+          body: bytes | None = None,
+          content_type: str | None = None) -> tuple[int, bytes]:
+    url = f"{API_URL}{path_and_query}"
+    req = request.Request(url, method=method, data=body)
+    if content_type:
+        req.add_header("Content-Type", content_type)
     try:
-        candidate.relative_to(BRAIN_DIR)
-    except ValueError as exc:
-        raise BrainPathError(f"path escapes brain root: {rel}") from exc
-    return candidate
+        with request.urlopen(req, timeout=HTTP_TIMEOUT) as resp:
+            return resp.status, resp.read()
+    except error.HTTPError as exc:
+        return exc.code, exc.read() or b""
+    except (error.URLError, TimeoutError) as exc:
+        return 0, str(exc).encode("utf-8")
 
 
 def _ensure_md(path: str) -> str:
     return path if path.endswith(".md") else f"{path}.md"
 
 
-# ── Tools ────────────────────────────────────────────────────────────────────
-
 def list_notes() -> dict:
-    """Return every .md path under BRAIN_DIR, sorted alphabetically."""
-    if not BRAIN_DIR.exists():
-        return {"ok": True, "notes": []}
-    notes = []
-    for root, _dirs, files in os.walk(BRAIN_DIR):
-        for name in files:
-            if not name.lower().endswith(".md"):
-                continue
-            full = Path(root) / name
-            try:
-                rel = full.relative_to(BRAIN_DIR).as_posix()
-            except ValueError:
-                continue
-            notes.append(rel)
-    notes.sort()
+    status, body = _http("GET", "/api/tree")
+    if status != 200:
+        return {"ok": False, "error": f"http {status}: {body.decode(errors='replace')}"}
+    try:
+        data = json.loads(body)
+    except json.JSONDecodeError as exc:
+        return {"ok": False, "error": f"invalid response: {exc}"}
+    notes = sorted(
+        e["path"] for e in data.get("entries", [])
+        if not e.get("isDir") and e.get("path", "").endswith(".md")
+    )
     return {"ok": True, "notes": notes}
 
 
 def search_notes(query: str, limit: int = 50) -> dict:
-    """Case-insensitive substring search across paths and contents."""
     if not isinstance(query, str) or not query:
         return {"ok": False, "error": "query is required"}
-    limit = max(1, min(int(limit), 200))
-    pattern = re.compile(re.escape(query), re.IGNORECASE)
-    hits: list[dict] = []
-    if not BRAIN_DIR.exists():
-        return {"ok": True, "hits": hits}
-    for root, _dirs, files in os.walk(BRAIN_DIR):
-        for name in files:
-            if not name.lower().endswith(".md"):
-                continue
-            full = Path(root) / name
-            try:
-                rel = full.relative_to(BRAIN_DIR).as_posix()
-                text = full.read_text(encoding="utf-8")
-            except (OSError, UnicodeDecodeError):
-                continue
-            if pattern.search(rel) or pattern.search(text):
-                snippet = ""
-                for line in text.splitlines():
-                    if pattern.search(line):
-                        snippet = line.strip()[:200]
-                        break
-                hits.append({"path": rel, "snippet": snippet})
-                if len(hits) >= limit:
-                    return {"ok": True, "hits": hits}
-    return {"ok": True, "hits": hits}
+    qs = parse.urlencode({"query": query, "limit": int(limit)})
+    status, body = _http("GET", f"/api/search?{qs}")
+    if status != 200:
+        return {"ok": False, "error": f"http {status}: {body.decode(errors='replace')}"}
+    try:
+        data = json.loads(body)
+    except json.JSONDecodeError as exc:
+        return {"ok": False, "error": f"invalid response: {exc}"}
+    return {"ok": True, "hits": data.get("hits", [])}
 
 
 def read_note(path: str) -> dict:
-    try:
-        full = _safe_path(_ensure_md(path))
-    except BrainPathError as err:
-        return {"ok": False, "error": str(err)}
-    if not full.is_file():
-        return {"ok": False, "error": "not_found", "path": path}
-    try:
-        content = full.read_text(encoding="utf-8")
-    except OSError as err:
-        return {"ok": False, "error": f"read failed: {err}"}
-    return {"ok": True, "path": path, "content": content}
+    if not isinstance(path, str) or not path:
+        return {"ok": False, "error": "path is required"}
+    target = _ensure_md(path)
+    qs = parse.urlencode({"path": target})
+    status, body = _http("GET", f"/api/file?{qs}")
+    if status == 404:
+        return {"ok": False, "error": "not_found", "path": target}
+    if status != 200:
+        return {"ok": False, "error": f"http {status}: {body.decode(errors='replace')}"}
+    return {"ok": True, "path": target, "content": body.decode("utf-8")}
 
 
 def write_note(path: str, content: str) -> dict:
+    if not isinstance(path, str) or not path:
+        return {"ok": False, "error": "path is required"}
     if not isinstance(content, str):
         return {"ok": False, "error": "content must be a string"}
-    safe_path = _ensure_md(path)
+    target = _ensure_md(path)
+    qs = parse.urlencode({"path": target})
+    encoded = content.encode("utf-8")
+    status, body = _http(
+        "PUT", f"/api/file?{qs}",
+        body=encoded,
+        content_type="text/markdown"
+    )
+    if status != 200:
+        return {"ok": False, "error": f"http {status}: {body.decode(errors='replace')}"}
     try:
-        full = _safe_path(safe_path)
-    except BrainPathError as err:
-        return {"ok": False, "error": str(err)}
-    full.parent.mkdir(parents=True, exist_ok=True)
-    # Atomic write: tmp + replace, so a half-finished write never appears.
-    tmp = full.with_suffix(full.suffix + f".tmp.{os.getpid()}")
-    try:
-        tmp.write_text(content, encoding="utf-8")
-        tmp.replace(full)
-    except OSError as err:
-        if tmp.exists():
-            try:
-                tmp.unlink()
-            except OSError:
-                pass
-        return {"ok": False, "error": f"write failed: {err}"}
-    return {
-        "ok": True,
-        "path": safe_path,
-        "bytes": len(content.encode("utf-8")),
-    }
+        data = json.loads(body)
+    except json.JSONDecodeError:
+        data = {}
+    return {"ok": True, "path": target, "bytes": data.get("size", len(encoded))}
 
-
-# ── Tool registry ────────────────────────────────────────────────────────────
 
 TOOLS = {
     "list_notes": list_notes,
@@ -156,13 +124,13 @@ def call(name: str, arguments: dict) -> dict:
         return {"ok": False, "error": f"unknown tool: {name}"}
     try:
         return fn(**(arguments or {}))
-    except TypeError as err:
-        return {"ok": False, "error": f"bad arguments for {name}: {err}"}
+    except TypeError as exc:
+        return {"ok": False, "error": f"bad arguments for {name}: {exc}"}
 
 
 __all__ = [
-    "BRAIN_DIR",
-    "BrainPathError",
+    "API_URL",
+    "get_api_url",
     "list_notes",
     "search_notes",
     "read_note",

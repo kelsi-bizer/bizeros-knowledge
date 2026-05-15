@@ -10,9 +10,9 @@ metadata:
   openclaw:
     requires:
       env:
-        - BRAIN_DIR
+        - BIZERBRAIN_API_URL
       bins: []
-    primaryEnv: BRAIN_DIR
+    primaryEnv: BIZERBRAIN_API_URL
 ---
 
 # BizerBrain
@@ -32,7 +32,7 @@ Skip this skill when the user is asking a one-off question that has nothing to d
 
 ## Quick Reference
 
-The brain lives at `$BRAIN_DIR` (default `/srv/bizerbrain/brain`). Four tools operate on it:
+The brain is served by the BizerBrain HTTP API at `$BIZERBRAIN_API_URL` (default `http://bizerbrain:8080`). Four tools operate on it:
 
 | Tool | Purpose |
 |---|---|
