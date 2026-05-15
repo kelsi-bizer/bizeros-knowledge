@@ -24,28 +24,48 @@ A markdown knowledge base for AI agents and humans, built around plain files on 
                                    Browser on your laptop
 ```
 
-## Quickstart
+## Deploy (new client — start to finish)
 
-On a VM (assuming Docker is installed):
+On a fresh VM with Docker installed. This is the whole thing; follow it top to bottom.
 
 ```bash
+# 1. Create the brain folder. Your notes live here, on the host.
 sudo mkdir -p /srv/bizerbrain/brain
 
-docker run -d \
-  --name bizerbrain \
-  --restart unless-stopped \
-  -v /srv/bizerbrain/brain:/brain \
-  -p 127.0.0.1:8080:80 \
-  ghcr.io/kelsi-bizer/bizerbrain:latest
+# 2. Get the compose file
+curl -fsSL https://raw.githubusercontent.com/kelsi-bizer/bizerbrain/master/docker-compose.yml -o docker-compose.yml
+
+# 3. Start BizerBrain
+docker compose up -d
+
+# 4. Confirm it's healthy
+docker compose ps
+curl -s http://127.0.0.1:8080/api/health      # -> {"ok":true,"brainDir":"/brain"}
 ```
 
-From your laptop, tunnel to the UI:
+**Reach the UI from your laptop** (the container is bound to the VM's
+loopback only — nothing is exposed publicly):
 
 ```bash
 ssh -L 8080:localhost:8080 user@your-vm
+# then open http://localhost:8080 in your browser
 ```
 
-Then open `http://localhost:8080`.
+**Connect your AI agent** (if it runs in its own container, e.g. Hermes/OpenClaw):
+
+```bash
+# Put the agent's container on the same network as BizerBrain
+docker network connect bizerbrain <your-agent-container-name>
+
+# Then set this env var on the agent process and install the skill or
+# MCP server (see "Agent integration" below):
+#   BIZERBRAIN_API_URL=http://bizerbrain:8080
+```
+
+That's the entire deployment. `http://bizerbrain:8080` is the URL the
+agent uses in every example and as the code default — it works for
+container-to-container traffic because the app listens on both port 80
+and 8080 inside the container. No port juggling, no manual bridge IPs.
 
 ## Components
 
@@ -61,11 +81,13 @@ The agent connects to BizerBrain over **HTTP**, not the filesystem. The agent ca
 
 Set one env var on the agent process:
 
-```
-BIZERBRAIN_API_URL=http://<bizerbrain-host>:8080
-```
+| Where the agent runs | `BIZERBRAIN_API_URL` |
+|---|---|
+| Its own container on the same Docker host (Hermes, OpenClaw, …) — **the common case** | `http://bizerbrain:8080` (after `docker network connect bizerbrain <agent>`) |
+| Directly on the host, no container | `http://localhost:8080` |
+| A different machine | `http://<bizerbrain-vm-ip-or-hostname>:8080` |
 
-For agents running in another container on the same Docker host, put both containers on the same Docker network and use the BizerBrain service name (`http://bizerbrain:8080`). For agents on the same host outside containers, use `http://localhost:8080`. For agents on a different machine, use the BizerBrain VM's IP or hostname.
+`http://bizerbrain:8080` is also the built-in default, so for the common containerized case you often don't need to set anything beyond joining the network.
 
 Two equally-valid ways to install the tools. Pick the one your agent supports — both call the same HTTP API and expose the same four tools (`list_notes`, `search_notes`, `read_note`, `write_note`).
 
@@ -106,12 +128,22 @@ The skill teaches the agent the brain conventions (folder layout, wiki-links, th
 
 ### Note on networking
 
-The BizerBrain quickstart binds the container to `127.0.0.1:8080` on the host — only reachable from the host itself. If your agent is in another container, either:
+The compose file binds the host port to `127.0.0.1:8080` — the UI is only reachable from the VM itself (use the SSH tunnel). It is **not** exposed publicly.
 
-- **Put both containers on the same Docker network** (recommended). Then use `http://bizerbrain:8080` from the agent.
-- **Bind BizerBrain to `0.0.0.0:8080`** (in the `docker run` command, use `-p 8080:80` instead of `-p 127.0.0.1:8080:80`). Then the agent can reach it via the Docker bridge IP (typically `http://172.17.0.1:8080`).
+Agent containers reach BizerBrain over the internal Docker network at `http://bizerbrain:8080`, not through the host port. The container listens on both port 80 and 8080 internally, so the `:8080` URL works the same from a container as it does through the host tunnel — there is only one URL to remember. The single requirement is that the agent's container is attached to the `bizerbrain` network:
 
-For a single-VM setup with both containers on the same host, the first option is cleaner and keeps the brain off the public network.
+```bash
+docker network connect bizerbrain <your-agent-container>
+```
+
+To confirm the agent can reach it:
+
+```bash
+docker exec <your-agent-container> \
+  python3 -c "import urllib.request; print(urllib.request.urlopen('http://bizerbrain:8080/api/health', timeout=5).read().decode())"
+```
+
+Expected: `{"ok":true,"brainDir":"/brain"}`.
 
 ## License
 
